@@ -353,7 +353,11 @@ pub const Module = struct {
             try global_data_list.append(GlobalSectionData{
                 .type = global_type,
                 .mutability = global_mutability,
-                .init = global_init,
+                .init = try std.mem.concat(
+                    allocator,
+                    u8,
+                    &[_][]const u8{ global_init, "\x0B" }, // zig concat is a bit """different"""
+                ),
             });
         }
 
