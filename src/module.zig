@@ -69,51 +69,27 @@ pub const Module = struct {
                 },
                 .start => {
                     std.debug.print("Start Section\n", .{});
-
-                    const size = try std.leb.readULEB128(usize, module_reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try module_reader.skipBytes(size, .{});
-
-                    try section_list.append(Section{
-                        .start = .{ .function_index = undefined },
-                    });
+                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section = try parseStartSectionData(allocator, section_reader);
+                    try section_list.append(section);
                 },
                 .element => {
                     std.debug.print("Element Section\n", .{});
-
-                    const size = try std.leb.readULEB128(usize, module_reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try module_reader.skipBytes(size, .{});
-
-                    try section_list.append(Section{
-                        .element = .{ .segments = undefined },
-                    });
+                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section = try parseElementSectionData(allocator, section_reader);
+                    try section_list.append(section);
                 },
                 .code => {
                     std.debug.print("Code Section\n", .{});
-
-                    const size = try std.leb.readULEB128(usize, module_reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try module_reader.skipBytes(size, .{});
-
-                    try section_list.append(Section{
-                        .code = .{ .bodies = undefined },
-                    });
+                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section = try parseCodeSectionData(allocator, section_reader);
+                    try section_list.append(section);
                 },
                 .data => {
                     std.debug.print("Data Section\n", .{});
-
-                    const size = try std.leb.readULEB128(usize, module_reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try module_reader.skipBytes(size, .{});
-
-                    try section_list.append(Section{
-                        .data = .{ .segments = undefined },
-                    });
+                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section = try parseCodeSectionData(allocator, section_reader);
+                    try section_list.append(section);
                 },
             }
         }
@@ -480,6 +456,37 @@ pub const Module = struct {
 
         return Section{ .@"export" = .{
             .exports = try export_data_list.toOwnedSlice(),
+        } };
+    }
+
+    fn parseStartSectionData(_: std.mem.Allocator, reader: SectionReader) !Section {
+        return Section{ .start = .{ .function_index = try std.leb.readULEB128(usize, reader) } };
+    }
+
+    fn parseElementSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+        _ = reader;
+        _ = allocator;
+
+        return Section{ .element = .{
+            .segments = undefined,
+        } };
+    }
+
+    fn parseCodeSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+        _ = reader;
+        _ = allocator;
+
+        return Section{ .code = .{
+            .bodies = undefined,
+        } };
+    }
+
+    fn parseDataSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+        _ = reader;
+        _ = allocator;
+
+        return Section{ .data = .{
+            .segments = undefined,
         } };
     }
 };

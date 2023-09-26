@@ -1,6 +1,7 @@
-# ZASM (WIP - ver. 0.0.0) 
+# ZASM (WIP - ver. 0.0.0)
+Name is a work in progress and is subject to change.
 
-ZASM is a simple, blazingly fast runtime for WebAssembly and WebAssembly System Interface (WASI) written in Zig. It is optimized for being embedded as a plugin system for games and other applications.
+ZASM is a simple, blazingly fast runtime for WebAssembly and WebAssembly System Interface (WASI) written in Zig. It is optimized for being embedded as a plugin system for games and other high-performance applications.
 
 ## Table of Contents
 
@@ -10,10 +11,12 @@ ZASM is a simple, blazingly fast runtime for WebAssembly and WebAssembly System 
   - [Features](#features)
   - [Getting Started](#getting-started)
   - [Usage](#usage)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Introduction
 
-ZASM is designed to provide a lightweight and efficient runtime for WebAssembly and WASI. It is intended to be used as a plugin system for games and other applications that require fast and efficient execution of WebAssembly modules.
+ZASM is designed to provide a lightweight and efficient runtime for WebAssembly and WASI. It is intended to be used as a plugin system for games and other high-performance applications that require fast and efficient execution of WebAssembly modules.
 
 ## Features
 
@@ -27,7 +30,9 @@ ZASM is designed to provide a lightweight and efficient runtime for WebAssembly 
 To get started with ZASM, you will need to have Zig installed on your system. Once you have Zig installed, you can clone the ZASM repository and build the runtime using the following commands:
 
 ```bash
-git clone https://github.com/b4rti/zasm.git && cd zasm zig build
+git clone https://github.com/your-username/zasm.git
+cd zasm
+zig build
 ```
 
 This will build the ZASM runtime and generate a static library that you can link to your application.
@@ -44,18 +49,15 @@ const Module = @import("zasm").Module;
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    // const module = try Module.fromPath(allocator, "wasm-test/add.wasm");
-    // const module = try Module.fromPath(allocator, "wasm-test/hello-world.wasm");
-    // const module = try Module.fromPath(allocator, "wasm-test/wasi-hello-world.wasm");
-    const module = try Module.fromPath(allocator, "wasm-test/rustpython.wasm");
-    _ = module;
+    const module = try Module.fromPath(allocator, "path/to/your/module.wasm");
+    // TODO: Implement decoding and execution of the module.
 }
 ```
-For more information on how to use the ZASM API, please refer to the API documentation.
 
-Contributing
-If you would like to contribute to ZASM, please follow the guidelines in the CONTRIBUTING.md file.
+## Contributing
 
-License
-ZASM is licensed under the MIT License. See the LICENSE file for more information.
+Contributions doesn't make sense at this point in time, but feel free to open an issue if you have any questions or suggestions.
 
+## License
+
+ZASM is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
