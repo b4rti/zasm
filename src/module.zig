@@ -14,8 +14,7 @@ pub const Module = struct {
         var sections = std.ArrayList(Section).init(allocator);
 
         while (true) {
-            const section_id_byte = reader.readByte() catch break;
-            const section_id: SectionID = @enumFromInt(section_id_byte);
+            const section_id: SectionID = @enumFromInt(reader.readByte() catch break);
             switch (section_id) {
                 .custom => {
                     std.debug.print("Custom Section\n", .{});
@@ -94,7 +93,7 @@ pub const Module = struct {
                     try reader.skipBytes(size, .{});
 
                     try sections.append(Section{
-                        .start = .{ .index = undefined },
+                        .start = .{ .function_index = undefined },
                     });
                 },
                 .element => {
@@ -147,7 +146,6 @@ pub const Module = struct {
         defer file.close();
 
         const slice = try file.readToEndAlloc(allocator, std.math.maxInt(u32));
-
         return try Module.fromSlice(allocator, slice);
     }
 
@@ -249,7 +247,7 @@ pub const Module = struct {
             const import_type: ImportType = @enumFromInt(try reader.readByte());
             switch (import_type) {
                 .function => {
-                    const type_index = try reader.readByte();
+                    const type_index = try std.leb.readULEB128(u32, reader);
 
                     try import_data_list.append(ImportSectionData{
                         .module_name = module_name_bytes,
@@ -343,22 +341,22 @@ const Section = union(SectionID) {
             name: []const u8,
             description: union {
                 function: struct {
-                    index: u32,
+                    function_index: u32,
                 },
                 table: struct {
-                    index: u32,
+                    table_index: u32,
                 },
                 memory: struct {
-                    index: u32,
+                    memory_index: u32,
                 },
                 global: struct {
-                    index: u32,
+                    global_index: u32,
                 },
             },
         },
     },
     start: struct {
-        index: u32,
+        function_index: u32,
     },
     element: struct {
         segments: []const struct {

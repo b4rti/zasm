@@ -5,7 +5,7 @@ const Module = @import("module.zig").Module;
 const Engine = @import("engine.zig").Engine;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.GeneralPurposeAllocator(.{ .verbose_log = false }){};
     const allocator = gpa.allocator();
     // const module = try Module.fromPath(allocator, "wasm-test/add.wasm");
     // const module = try Module.fromPath(allocator, "wasm-test/hello-world.wasm");
