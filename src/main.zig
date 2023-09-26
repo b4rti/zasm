@@ -11,5 +11,12 @@ pub fn main() !void {
     var args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    _ = try Module.fromPath(allocator, args[1]);
+    const module = try Module.fromPath(allocator, args[1]);
+    defer module.deinit();
+}
+
+test "module - wasm-test/zig.wasm" {
+    const allocator = std.testing.allocator;
+    const module = try Module.fromPath(allocator, "wasm-test/zig.wasm");
+    defer module.deinit();
 }

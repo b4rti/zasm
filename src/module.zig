@@ -63,15 +63,9 @@ pub const Module = struct {
                 },
                 .@"export" => {
                     std.debug.print("Export Section\n", .{});
-
-                    const size = try std.leb.readULEB128(usize, module_reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try module_reader.skipBytes(size, .{});
-
-                    try section_list.append(Section{
-                        .@"export" = .{ .exports = undefined },
-                    });
+                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section = try parseExportSectionData(allocator, section_reader);
+                    try section_list.append(section);
                 },
                 .start => {
                     std.debug.print("Start Section\n", .{});
@@ -138,6 +132,78 @@ pub const Module = struct {
         return try Module.fromSlice(allocator, slice);
     }
 
+    pub fn deinit(self: Module) void {
+        for (self.sections) |section| {
+            switch (section) {
+                .custom => {
+                    self.allocator.free(section.custom.name);
+                    self.allocator.free(section.custom.data);
+                },
+                .type => {
+                    for (section.type.types) |@"type"| {
+                        self.allocator.free(@"type".params);
+                        self.allocator.free(@"type".returns);
+                    }
+                    self.allocator.free(section.type.types);
+                },
+                .import => {
+                    for (section.import.imports) |import| {
+                        self.allocator.free(import.module_name);
+                        self.allocator.free(import.import_name);
+                    }
+                    self.allocator.free(section.import.imports);
+                },
+                .function => {
+                    self.allocator.free(section.function.type_indicies);
+                },
+                .table => {
+                    self.allocator.free(section.table.tables);
+                },
+                .memory => {
+                    self.allocator.free(section.memory.memories);
+                },
+                .global => {
+                    for (section.global.globals) |global| {
+                        self.allocator.free(global.init);
+                    }
+                    self.allocator.free(section.global.globals);
+                },
+                .@"export" => {
+                    self.allocator.free(section.@"export".exports);
+                },
+                .start => {
+                    // nothing to free
+                },
+                .element => {
+                    // for (section.element.segments) |segment| {
+                    //     self.allocator.free(segment.offset);
+                    //     self.allocator.free(segment.init);
+                    // }
+                    self.allocator.free(section.element.segments);
+                },
+                .code => {
+                    // for (section.code.bodies) |body| {
+                    //     for (body.locals) |local| {
+                    //         self.allocator.free(local.type);
+                    //     }
+                    //     self.allocator.free(body.locals);
+                    //     self.allocator.free(body.code);
+                    // }
+                    self.allocator.free(section.code.bodies);
+                },
+                .data => {
+                    // for (section.data.segments) |segment| {
+                    //     self.allocator.free(segment.offset);
+                    //     self.allocator.free(segment.init);
+                    // }
+                    self.allocator.free(section.data.segments);
+                },
+            }
+        }
+
+        self.allocator.free(self.sections);
+    }
+
     fn checkMagic(reader: anytype) !void {
         var magic: [4]u8 = undefined;
         _ = try reader.readAll(&magic);
@@ -156,6 +222,7 @@ pub const Module = struct {
     }
 
     fn createSectionReader(allocator: std.mem.Allocator, module_reader: anytype) std.io.FixedBufferStream([]u8).Reader {
+        // TODO: !!! switch to using sub-slices instead of allocating new memory and leaking it !!!
         const section_size = std.leb.readULEB128(usize, module_reader) catch unreachable;
         const section_bytes = allocator.alloc(u8, section_size) catch unreachable;
         _ = module_reader.readAll(section_bytes) catch unreachable;
@@ -203,13 +270,10 @@ pub const Module = struct {
                 try returns_list.append(@enumFromInt(returns_byte));
             }
 
-            var type_data = TypeSectionData{
+            try type_data_list.append(TypeSectionData{
                 .params = try params_list.toOwnedSlice(),
                 .returns = try returns_list.toOwnedSlice(),
-            };
-
-            std.debug.print("        {}\n", .{type_data});
-            try type_data_list.append(type_data);
+            });
         }
 
         return Section{
@@ -231,9 +295,7 @@ pub const Module = struct {
             const import_name_bytes = try allocator.alloc(u8, import_name_length);
             _ = try reader.readAll(import_name_bytes);
 
-            std.debug.print("        {s}.{s}\n", .{ module_name_bytes, import_name_bytes });
-
-            const import_type: ImportType = @enumFromInt(try reader.readByte());
+            const import_type: ImportExportType = @enumFromInt(try reader.readByte());
             switch (import_type) {
                 .function => {
                     const type_index = try std.leb.readULEB128(usize, reader);
@@ -261,7 +323,7 @@ pub const Module = struct {
         }
 
         return Section{
-            .import = .{ .imports = undefined },
+            .import = .{ .imports = try import_data_list.toOwnedSlice() },
         };
     }
 
@@ -270,6 +332,7 @@ pub const Module = struct {
         std.debug.print("    Function count: {}\n", .{count});
 
         const type_indicies_bytes = try allocator.alloc(u8, count);
+        defer allocator.free(type_indicies_bytes);
         _ = try reader.readAll(type_indicies_bytes);
 
         var type_indicies_list = std.ArrayList(usize).init(allocator);
@@ -291,7 +354,6 @@ pub const Module = struct {
             const table_type: ValueType = @enumFromInt(try reader.readByte());
             const table_min = try std.leb.readULEB128(usize, reader);
             const table_max = try std.leb.readULEB128(usize, reader);
-            try reader.skipBytes(1, .{}); // TODO: ?????? WTF sometime 1 and sometime 2 bytes
 
             try table_data_list.append(TableSectionData{
                 .type = table_type,
@@ -301,7 +363,6 @@ pub const Module = struct {
                 },
             });
         }
-        std.debug.print("        table_data_list: {any}\n", .{table_data_list.items});
 
         return Section{ .table = .{
             .tables = try table_data_list.toOwnedSlice(),
@@ -330,8 +391,6 @@ pub const Module = struct {
             });
         }
 
-        std.debug.print("        memory_data_list: {any}\n", .{memory_data_list.items});
-
         return Section{ .memory = .{
             .memories = try memory_data_list.toOwnedSlice(),
         } };
@@ -358,10 +417,69 @@ pub const Module = struct {
             });
         }
 
-        std.debug.print("        global_data_list: {any}\n", .{global_data_list.items});
-
         return Section{ .global = .{
             .globals = try global_data_list.toOwnedSlice(),
+        } };
+    }
+
+    fn parseExportSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+        const count = try std.leb.readULEB128(usize, reader);
+        std.debug.print("    Export count: {}\n", .{count});
+
+        var export_data_list = std.ArrayList(ExportSectionData).init(allocator);
+        for (0..count) |_| {
+            const export_name_length = try std.leb.readULEB128(usize, reader);
+            const export_name_bytes = try allocator.alloc(u8, export_name_length);
+            _ = try reader.readAll(export_name_bytes);
+
+            const export_type: ImportExportType = @enumFromInt(try reader.readByte());
+
+            switch (export_type) {
+                .function => {
+                    try export_data_list.append(ExportSectionData{
+                        .name = export_name_bytes,
+                        .description = .{
+                            .function = .{
+                                .function_index = try std.leb.readULEB128(usize, reader),
+                            },
+                        },
+                    });
+                },
+                .table => {
+                    try export_data_list.append(ExportSectionData{
+                        .name = export_name_bytes,
+                        .description = .{
+                            .table = .{
+                                .table_index = try std.leb.readULEB128(usize, reader),
+                            },
+                        },
+                    });
+                },
+                .memory => {
+                    try export_data_list.append(ExportSectionData{
+                        .name = export_name_bytes,
+                        .description = .{
+                            .memory = .{
+                                .memory_index = try std.leb.readULEB128(usize, reader),
+                            },
+                        },
+                    });
+                },
+                .global => {
+                    try export_data_list.append(ExportSectionData{
+                        .name = export_name_bytes,
+                        .description = .{
+                            .global = .{
+                                .global_index = try std.leb.readULEB128(usize, reader),
+                            },
+                        },
+                    });
+                },
+            }
+        }
+
+        return Section{ .@"export" = .{
+            .exports = try export_data_list.toOwnedSlice(),
         } };
     }
 };
@@ -444,7 +562,7 @@ const TypeSectionData = struct {
     returns: []const ValueType,
 };
 
-const ImportType = enum(u8) {
+const ImportExportType = enum(u8) {
     // zig fmt: off
     function    = 0x00,
     table       = 0x01,
@@ -456,7 +574,7 @@ const ImportType = enum(u8) {
 const ImportSectionData = struct {
     module_name: []const u8,
     import_name: []const u8,
-    description: union(ImportType) {
+    description: union(ImportExportType) {
         function: struct {
             type_index: usize,
         },
@@ -502,9 +620,24 @@ const GlobalSectionData = struct {
     init: []const u8,
 };
 
+const ExportType = struct {
+    function: struct {
+        function_index: usize,
+    },
+    table: struct {
+        table_index: usize,
+    },
+    memory: struct {
+        memory_index: usize,
+    },
+    global: struct {
+        global_index: usize,
+    },
+};
+
 const ExportSectionData = struct {
     name: []const u8,
-    description: union {
+    description: union(ImportExportType) {
         function: struct {
             function_index: usize,
         },
