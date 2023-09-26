@@ -14,48 +14,23 @@ pub const Module = struct {
         var sections = std.ArrayList(Section).init(allocator);
 
         while (true) {
-            const section_id: SectionID = @enumFromInt(reader.readByte() catch break);
+            const section_id_byte = reader.readByte() catch break;
+            const section_id: SectionID = @enumFromInt(section_id_byte);
             switch (section_id) {
                 .custom => {
                     std.debug.print("Custom Section\n", .{});
-
-                    const size = try std.leb.readULEB128(u32, reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    var section_bytes = try allocator.alloc(u8, size);
-                    _ = try reader.readAll(section_bytes);
-
-                    const section = try parseCustomSectionData(allocator, section_bytes);
-
+                    const section = try parseCustomSectionData(allocator, reader);
                     try sections.append(section);
                 },
                 .type => {
                     std.debug.print("Type Section\n", .{});
-
-                    const size = try std.leb.readULEB128(u32, reader);
-                    std.debug.print("    size: {}\n", .{size});
-
-                    const count = try std.leb.readULEB128(u32, reader);
-                    std.debug.print("    count: {}\n", .{count});
-
-                    var section_bytes = try allocator.alloc(u8, size - 1);
-                    _ = try reader.readAll(section_bytes);
-
-                    const section = try parseTypeSectionData(allocator, section_bytes);
-
+                    const section = try parseTypeSectionData(allocator, reader);
                     try sections.append(section);
                 },
                 .import => {
                     std.debug.print("Import Section\n", .{});
-
-                    const size = try std.leb.readULEB128(u32, reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try reader.skipBytes(size, .{});
-
-                    try sections.append(Section{
-                        .import = .{ .imports = undefined },
-                    });
+                    const section = try parseImportSectionData(allocator, reader);
+                    try sections.append(section);
                 },
                 .function => {
                     std.debug.print("Function Section\n", .{});
@@ -200,9 +175,12 @@ pub const Module = struct {
         }
     }
 
-    fn parseCustomSectionData(allocator: std.mem.Allocator, section_bytes: []const u8) !Section {
-        _ = allocator;
-        _ = section_bytes;
+    fn parseCustomSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
+        const size = try std.leb.readULEB128(u32, reader);
+        std.debug.print("    Section size: {}\n", .{size});
+
+        var section_bytes = try allocator.alloc(u8, size);
+        _ = try reader.readAll(section_bytes);
 
         return Section{
             .custom = .{
@@ -212,7 +190,15 @@ pub const Module = struct {
         };
     }
 
-    fn parseTypeSectionData(allocator: std.mem.Allocator, section_bytes: []const u8) !Section {
+    fn parseTypeSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
+        const size = try std.leb.readULEB128(u32, reader);
+        std.debug.print("    Section size: {}\n", .{size});
+
+        const count = try std.leb.readULEB128(u32, reader);
+        std.debug.print("    Type count: {}\n", .{count});
+
+        var section_bytes = try allocator.alloc(u8, size - 1);
+        _ = try reader.readAll(section_bytes);
         var types = std.ArrayList(TypeSectionData).init(allocator);
 
         var type_iter = std.mem.tokenize(u8, section_bytes, "\x60");
@@ -221,32 +207,42 @@ pub const Module = struct {
 
             const params_count = type_bytes[0];
             const params_bytes = type_bytes[1 .. params_count + 1];
-
             const returns_count = type_bytes[params_count + 1];
-            var returns_byte: u8 = 0;
-            if (returns_count > 0) {
-                returns_byte = type_bytes[params_count + 2];
-            }
+            const returns_bytes = type_bytes[params_count + 2 .. params_count + 2 + returns_count];
 
             var params_list = std.ArrayList(ValueType).init(allocator);
             for (params_bytes) |param| {
                 try params_list.append(@enumFromInt(param));
             }
-            if (params_list.items.len == 0) {
-                try params_list.append(ValueType.void);
+
+            var returns_list = std.ArrayList(ValueType).init(allocator);
+            for (returns_bytes) |returns_byte| {
+                try returns_list.append(@enumFromInt(returns_byte));
             }
 
             var type_def = TypeSectionData{
                 .params = try params_list.toOwnedSlice(),
-                .returns = @enumFromInt(returns_byte),
+                .returns = try returns_list.toOwnedSlice(),
             };
 
-            std.debug.print("    {}\n", .{type_def});
+            std.debug.print("        {}\n", .{type_def});
             try types.append(type_def);
         }
 
         return Section{
             .type = .{ .types = try types.toOwnedSlice() },
+        };
+    }
+
+    fn parseImportSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
+        const size = try std.leb.readULEB128(u32, reader);
+        std.debug.print("    Section size: {}\n", .{size});
+
+        var section_bytes = try allocator.alloc(u8, size);
+        _ = try reader.readAll(section_bytes);
+
+        return Section{
+            .import = .{ .imports = undefined },
         };
     }
 };
@@ -356,7 +352,6 @@ const SectionID = enum(u8) {
 
 const ValueType = enum(u8) {
     // zig fmt: off
-    void        = 0x00,
     i32         = 0x7F,
     i64         = 0x7E,
     f32         = 0x7D,
@@ -373,7 +368,7 @@ const ValueType = enum(u8) {
 
 const TypeSectionData = struct {
     params: []const ValueType,
-    returns: ValueType,
+    returns: []const ValueType,
 };
 
 const ImportSectionData = struct {

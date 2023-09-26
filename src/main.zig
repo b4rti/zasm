@@ -9,6 +9,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     // const module = try Module.fromPath(allocator, "wasm-test/add.wasm");
     // const module = try Module.fromPath(allocator, "wasm-test/hello-world.wasm");
-    const module = try Module.fromPath(allocator, "wasm-test/wasi-hello-world.wasm");
+    // const module = try Module.fromPath(allocator, "wasm-test/wasi-hello-world.wasm");
+    const module = try Module.fromPath(allocator, "wasm-test/rustpython.wasm");
     _ = module;
 }
