@@ -39,7 +39,7 @@ pub const Module = struct {
                 .table => {
                     std.debug.print("Table Section\n", .{});
 
-                    const size = try std.leb.readULEB128(u32, reader);
+                    const size = try std.leb.readULEB128(usize, reader);
                     std.debug.print("    Section size: {}\n", .{size});
 
                     try reader.skipBytes(size, .{});
@@ -51,7 +51,7 @@ pub const Module = struct {
                 .memory => {
                     std.debug.print("Memory Section\n", .{});
 
-                    const size = try std.leb.readULEB128(u32, reader);
+                    const size = try std.leb.readULEB128(usize, reader);
                     std.debug.print("    Section size: {}\n", .{size});
 
                     try reader.skipBytes(size, .{});
@@ -63,7 +63,7 @@ pub const Module = struct {
                 .global => {
                     std.debug.print("Global Section\n", .{});
 
-                    const size = try std.leb.readULEB128(u32, reader);
+                    const size = try std.leb.readULEB128(usize, reader);
                     std.debug.print("    Section size: {}\n", .{size});
 
                     try reader.skipBytes(size, .{});
@@ -75,7 +75,7 @@ pub const Module = struct {
                 .@"export" => {
                     std.debug.print("Export Section\n", .{});
 
-                    const size = try std.leb.readULEB128(u32, reader);
+                    const size = try std.leb.readULEB128(usize, reader);
                     std.debug.print("    Section size: {}\n", .{size});
 
                     try reader.skipBytes(size, .{});
@@ -87,7 +87,7 @@ pub const Module = struct {
                 .start => {
                     std.debug.print("Start Section\n", .{});
 
-                    const size = try std.leb.readULEB128(u32, reader);
+                    const size = try std.leb.readULEB128(usize, reader);
                     std.debug.print("    Section size: {}\n", .{size});
 
                     try reader.skipBytes(size, .{});
@@ -99,7 +99,7 @@ pub const Module = struct {
                 .element => {
                     std.debug.print("Element Section\n", .{});
 
-                    const size = try std.leb.readULEB128(u32, reader);
+                    const size = try std.leb.readULEB128(usize, reader);
                     std.debug.print("    Section size: {}\n", .{size});
 
                     try reader.skipBytes(size, .{});
@@ -111,7 +111,7 @@ pub const Module = struct {
                 .code => {
                     std.debug.print("Code Section\n", .{});
 
-                    const size = try std.leb.readULEB128(u32, reader);
+                    const size = try std.leb.readULEB128(usize, reader);
                     std.debug.print("    Section size: {}\n", .{size});
 
                     try reader.skipBytes(size, .{});
@@ -123,7 +123,7 @@ pub const Module = struct {
                 .data => {
                     std.debug.print("Data Section\n", .{});
 
-                    const size = try std.leb.readULEB128(u32, reader);
+                    const size = try std.leb.readULEB128(usize, reader);
                     std.debug.print("    Section size: {}\n", .{size});
 
                     try reader.skipBytes(size, .{});
@@ -145,7 +145,7 @@ pub const Module = struct {
         var file = try std.fs.cwd().openFile(path, .{ .mode = .read_only });
         defer file.close();
 
-        const slice = try file.readToEndAlloc(allocator, std.math.maxInt(u32));
+        const slice = try file.readToEndAlloc(allocator, std.math.maxInt(usize));
         return try Module.fromSlice(allocator, slice);
     }
 
@@ -167,7 +167,7 @@ pub const Module = struct {
     }
 
     fn parseCustomSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
-        const size = try std.leb.readULEB128(u32, reader);
+        const size = try std.leb.readULEB128(usize, reader);
         std.debug.print("    Section size: {}\n", .{size});
 
         var section_bytes = try allocator.alloc(u8, size);
@@ -182,10 +182,10 @@ pub const Module = struct {
     }
 
     fn parseTypeSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
-        const size = try std.leb.readULEB128(u32, reader);
+        const size = try std.leb.readULEB128(usize, reader);
         std.debug.print("    Section size: {}\n", .{size});
 
-        const count = try std.leb.readULEB128(u32, reader);
+        const count = try std.leb.readULEB128(usize, reader);
         std.debug.print("    Type count: {}\n", .{count});
 
         var section_bytes = try allocator.alloc(u8, size - 1); // -1 because we read 1 byte for the count
@@ -226,28 +226,28 @@ pub const Module = struct {
     }
 
     fn parseImportSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
-        const size = try std.leb.readULEB128(u32, reader);
+        const size = try std.leb.readULEB128(usize, reader);
         std.debug.print("    Section size: {}\n", .{size});
 
-        const count = try std.leb.readULEB128(u32, reader);
+        const count = try std.leb.readULEB128(usize, reader);
         std.debug.print("    Import count: {}\n", .{count});
 
         var import_data_list = std.ArrayList(ImportSectionData).init(allocator);
         for (0..count) |_| {
-            const module_name_length = try std.leb.readULEB128(u32, reader);
+            const module_name_length = try std.leb.readULEB128(usize, reader);
             const module_name_bytes = try allocator.alloc(u8, module_name_length);
             _ = try reader.readAll(module_name_bytes);
 
-            const import_name_length = try std.leb.readULEB128(u32, reader);
+            const import_name_length = try std.leb.readULEB128(usize, reader);
             const import_name_bytes = try allocator.alloc(u8, import_name_length);
             _ = try reader.readAll(import_name_bytes);
 
-            std.debug.print("        {s} -> {s}\n", .{ module_name_bytes, import_name_bytes });
+            std.debug.print("        {s}.{s}\n", .{ module_name_bytes, import_name_bytes });
 
             const import_type: ImportType = @enumFromInt(try reader.readByte());
             switch (import_type) {
                 .function => {
-                    const type_index = try std.leb.readULEB128(u32, reader);
+                    const type_index = try std.leb.readULEB128(usize, reader);
 
                     try import_data_list.append(ImportSectionData{
                         .module_name = module_name_bytes,
@@ -277,16 +277,16 @@ pub const Module = struct {
     }
 
     fn parseFunctionSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
-        const size = try std.leb.readULEB128(u32, reader);
+        const size = try std.leb.readULEB128(usize, reader);
         std.debug.print("    Section size: {}\n", .{size});
 
-        const count = try std.leb.readULEB128(u32, reader);
+        const count = try std.leb.readULEB128(usize, reader);
         std.debug.print("    Function count: {}\n", .{count});
 
         const type_indicies_bytes = try allocator.alloc(u8, count);
         _ = try reader.readAll(type_indicies_bytes);
 
-        var type_indicies_list = std.ArrayList(u32).init(allocator);
+        var type_indicies_list = std.ArrayList(usize).init(allocator);
         for (type_indicies_bytes) |byte| {
             try type_indicies_list.append(byte);
         }
@@ -309,14 +309,14 @@ const Section = union(SectionID) {
         imports: []const ImportSectionData,
     },
     function: struct {
-        type_indicies: []const u32,
+        type_indicies: []const usize,
     },
     table: struct {
         tables: []const struct {
             type: ValueType,
             limits: struct {
-                min: u32,
-                max: u32,
+                min: usize,
+                max: usize,
             },
         },
     },
@@ -324,8 +324,8 @@ const Section = union(SectionID) {
         memories: []const struct {
             limits: struct {
                 has_max: bool,
-                min: u32,
-                max: u32,
+                min: usize,
+                max: usize,
             },
         },
     },
@@ -341,26 +341,26 @@ const Section = union(SectionID) {
             name: []const u8,
             description: union {
                 function: struct {
-                    function_index: u32,
+                    function_index: usize,
                 },
                 table: struct {
-                    table_index: u32,
+                    table_index: usize,
                 },
                 memory: struct {
-                    memory_index: u32,
+                    memory_index: usize,
                 },
                 global: struct {
-                    global_index: u32,
+                    global_index: usize,
                 },
             },
         },
     },
     start: struct {
-        function_index: u32,
+        function_index: usize,
     },
     element: struct {
         segments: []const struct {
-            index: u32,
+            index: usize,
             offset: []const u8,
             init: []const u8,
         },
@@ -368,7 +368,7 @@ const Section = union(SectionID) {
     code: struct {
         bodies: []const struct {
             locals: []const struct {
-                count: u32,
+                count: usize,
                 type: ValueType,
             },
             code: []const u8,
@@ -376,7 +376,7 @@ const Section = union(SectionID) {
     },
     data: struct {
         segments: []const struct {
-            index: u32,
+            index: usize,
             offset: []const u8,
             init: []const u8,
         },
@@ -435,19 +435,19 @@ const ImportSectionData = struct {
     import_name: []const u8,
     description: union(ImportType) {
         function: struct {
-            type_index: u32,
+            type_index: usize,
         },
         table: struct {
             type: ValueType,
             limits: struct {
-                min: u32,
-                max: u32,
+                min: usize,
+                max: usize,
             },
         },
         memory: struct {
             limits: struct {
-                min: u32,
-                max: u32,
+                min: usize,
+                max: usize,
             },
         },
         global: struct {
