@@ -15,6 +15,7 @@ pub const Module = struct {
 
         while (true) {
             const section_id: SectionID = @enumFromInt(reader.readByte() catch break);
+
             switch (section_id) {
                 .custom => {
                     std.debug.print("Custom Section\n", .{});
@@ -38,39 +39,18 @@ pub const Module = struct {
                 },
                 .table => {
                     std.debug.print("Table Section\n", .{});
-
-                    const size = try std.leb.readULEB128(usize, reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try reader.skipBytes(size, .{});
-
-                    try sections.append(Section{
-                        .table = .{ .tables = undefined },
-                    });
+                    const section = try parseTableSectionData(allocator, reader);
+                    try sections.append(section);
                 },
                 .memory => {
                     std.debug.print("Memory Section\n", .{});
-
-                    const size = try std.leb.readULEB128(usize, reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try reader.skipBytes(size, .{});
-
-                    try sections.append(Section{
-                        .memory = .{ .memories = undefined },
-                    });
+                    const section = try parseMemorySectionData(allocator, reader);
+                    try sections.append(section);
                 },
                 .global => {
                     std.debug.print("Global Section\n", .{});
-
-                    const size = try std.leb.readULEB128(usize, reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try reader.skipBytes(size, .{});
-
-                    try sections.append(Section{
-                        .global = .{ .globals = undefined },
-                    });
+                    const section = try parseGlobalSectionData(allocator, reader);
+                    try sections.append(section);
                 },
                 .@"export" => {
                     std.debug.print("Export Section\n", .{});
@@ -295,6 +275,94 @@ pub const Module = struct {
             .function = .{ .type_indicies = try type_indicies_list.toOwnedSlice() },
         };
     }
+
+    fn parseTableSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
+        const size = try std.leb.readULEB128(usize, reader);
+        std.debug.print("    Section size: {}\n", .{size});
+
+        const count = try std.leb.readULEB128(usize, reader);
+        std.debug.print("    Table count: {}\n", .{count});
+
+        var table_data_list = std.ArrayList(TableSectionData).init(allocator);
+        for (0..count) |_| {
+            const table_type: ValueType = @enumFromInt(try reader.readByte());
+            const table_min = try std.leb.readULEB128(usize, reader);
+            const table_max = try std.leb.readULEB128(usize, reader);
+            try reader.skipBytes(2, .{}); // TODO: ?????? WTF is [0xE8, 0x21] ?
+
+            try table_data_list.append(TableSectionData{
+                .type = table_type,
+                .limits = .{
+                    .min = table_min,
+                    .max = table_max,
+                },
+            });
+        }
+        std.debug.print("        table_data_list: {any}\n", .{table_data_list.items});
+
+        return Section{ .table = .{
+            .tables = try table_data_list.toOwnedSlice(),
+        } };
+    }
+
+    fn parseMemorySectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
+        const size = try std.leb.readULEB128(usize, reader);
+        std.debug.print("    Section size: {}\n", .{size});
+
+        const count = try std.leb.readULEB128(usize, reader);
+        std.debug.print("    Memory count: {}\n", .{count});
+
+        var memory_data_list = std.ArrayList(MemorySectionData).init(allocator);
+        for (0..count) |_| {
+            const memory_has_max = try reader.readByte();
+            const memory_min = try std.leb.readULEB128(usize, reader);
+            var memory_max: usize = 0;
+            if (memory_has_max > 0) {
+                memory_max = try std.leb.readULEB128(usize, reader);
+            }
+
+            try memory_data_list.append(MemorySectionData{
+                .limits = .{
+                    .has_max = (memory_has_max > 0),
+                    .min = memory_min,
+                    .max = memory_max,
+                },
+            });
+        }
+
+        std.debug.print("        memory_data_list: {any}\n", .{memory_data_list.items});
+
+        return Section{ .memory = .{
+            .memories = try memory_data_list.toOwnedSlice(),
+        } };
+    }
+
+    fn parseGlobalSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
+        const size = try std.leb.readULEB128(usize, reader);
+        std.debug.print("    Section size: {}\n", .{size});
+
+        const count = try std.leb.readULEB128(usize, reader);
+        std.debug.print("    Global count: {}\n", .{count});
+
+        var global_data_list = std.ArrayList(GlobalSectionData).init(allocator);
+        for (0..count) |_| {
+            const global_type: ValueType = @enumFromInt(try reader.readByte());
+            const global_mutability = (try reader.readByte() > 0);
+            var global_init = try reader.readUntilDelimiterAlloc(allocator, 0x0B, std.math.maxInt(usize));
+
+            try global_data_list.append(GlobalSectionData{
+                .type = global_type,
+                .mutability = global_mutability,
+                .init = global_init,
+            });
+        }
+
+        std.debug.print("        global_data_list: {any}", .{global_data_list.items});
+
+        return Section{ .global = .{
+            .globals = try global_data_list.toOwnedSlice(),
+        } };
+    }
 };
 
 const Section = union(SectionID) {
@@ -312,74 +380,28 @@ const Section = union(SectionID) {
         type_indicies: []const usize,
     },
     table: struct {
-        tables: []const struct {
-            type: ValueType,
-            limits: struct {
-                min: usize,
-                max: usize,
-            },
-        },
+        tables: []const TableSectionData,
     },
     memory: struct {
-        memories: []const struct {
-            limits: struct {
-                has_max: bool,
-                min: usize,
-                max: usize,
-            },
-        },
+        memories: []const MemorySectionData,
     },
     global: struct {
-        globals: []const struct {
-            type: ValueType,
-            mutability: bool,
-            init: []const u8,
-        },
+        globals: []const GlobalSectionData,
     },
     @"export": struct {
-        exports: []const struct {
-            name: []const u8,
-            description: union {
-                function: struct {
-                    function_index: usize,
-                },
-                table: struct {
-                    table_index: usize,
-                },
-                memory: struct {
-                    memory_index: usize,
-                },
-                global: struct {
-                    global_index: usize,
-                },
-            },
-        },
+        exports: []const ExportSectionData,
     },
     start: struct {
         function_index: usize,
     },
     element: struct {
-        segments: []const struct {
-            index: usize,
-            offset: []const u8,
-            init: []const u8,
-        },
+        segments: []const ElementSectionData,
     },
     code: struct {
-        bodies: []const struct {
-            locals: []const struct {
-                count: usize,
-                type: ValueType,
-            },
-            code: []const u8,
-        },
+        bodies: []const CodeSectionData,
     },
     data: struct {
-        segments: []const struct {
-            index: usize,
-            offset: []const u8,
-            init: []const u8,
-        },
+        segments: []const DataSectionData,
     },
 };
 
@@ -454,5 +476,71 @@ const ImportSectionData = struct {
             type: ValueType,
             mutability: bool,
         },
+    },
+};
+
+const TableSectionData = struct {
+    type: ValueType,
+    limits: struct {
+        min: usize,
+        max: usize,
+    },
+};
+
+const MemorySectionData = struct {
+    limits: struct {
+        has_max: bool,
+        min: usize,
+        max: usize,
+    },
+};
+
+const GlobalSectionData = struct {
+    type: ValueType,
+    mutability: bool,
+    init: []const u8,
+};
+
+const ExportSectionData = struct {
+    name: []const u8,
+    description: union {
+        function: struct {
+            function_index: usize,
+        },
+        table: struct {
+            table_index: usize,
+        },
+        memory: struct {
+            memory_index: usize,
+        },
+        global: struct {
+            global_index: usize,
+        },
+    },
+};
+
+const ElementSectionData = struct {
+    segments: []const struct {
+        index: usize,
+        offset: []const u8,
+        init: []const u8,
+    },
+};
+
+const CodeSectionData = struct {
+    bodies: []const struct {
+        locals: []const struct {
+            count: usize,
+            type: ValueType,
+        },
+        code: []const u8,
+    },
+};
+
+const DataSectionData = struct {
+    segments: []const struct {
+        index: usize,
+        offset: []const u8,
+        init: []const u8,
     },
 };
