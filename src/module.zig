@@ -34,15 +34,8 @@ pub const Module = struct {
                 },
                 .function => {
                     std.debug.print("Function Section\n", .{});
-
-                    const size = try std.leb.readULEB128(u32, reader);
-                    std.debug.print("    Section size: {}\n", .{size});
-
-                    try reader.skipBytes(size, .{});
-
-                    try sections.append(Section{
-                        .function = .{ .type_indicies = undefined },
-                    });
+                    const section = try parseFunctionSectionData(allocator, reader);
+                    try sections.append(section);
                 },
                 .table => {
                     std.debug.print("Table Section\n", .{});
@@ -197,13 +190,13 @@ pub const Module = struct {
         const count = try std.leb.readULEB128(u32, reader);
         std.debug.print("    Type count: {}\n", .{count});
 
-        var section_bytes = try allocator.alloc(u8, size - 1);
+        var section_bytes = try allocator.alloc(u8, size - 1); // -1 because we read 1 byte for the count
         _ = try reader.readAll(section_bytes);
-        var types = std.ArrayList(TypeSectionData).init(allocator);
+        var section_bytes_iter = std.mem.tokenize(u8, section_bytes, "\x60");
 
-        var type_iter = std.mem.tokenize(u8, section_bytes, "\x60");
-        while (type_iter.peek() != null) {
-            const type_bytes = type_iter.next().?;
+        var type_data_list = std.ArrayList(TypeSectionData).init(allocator);
+        while (section_bytes_iter.peek() != null) {
+            const type_bytes = section_bytes_iter.next().?;
 
             const params_count = type_bytes[0];
             const params_bytes = type_bytes[1 .. params_count + 1];
@@ -220,17 +213,17 @@ pub const Module = struct {
                 try returns_list.append(@enumFromInt(returns_byte));
             }
 
-            var type_def = TypeSectionData{
+            var type_data = TypeSectionData{
                 .params = try params_list.toOwnedSlice(),
                 .returns = try returns_list.toOwnedSlice(),
             };
 
-            std.debug.print("        {}\n", .{type_def});
-            try types.append(type_def);
+            std.debug.print("        {}\n", .{type_data});
+            try type_data_list.append(type_data);
         }
 
         return Section{
-            .type = .{ .types = try types.toOwnedSlice() },
+            .type = .{ .types = try type_data_list.toOwnedSlice() },
         };
     }
 
@@ -238,11 +231,70 @@ pub const Module = struct {
         const size = try std.leb.readULEB128(u32, reader);
         std.debug.print("    Section size: {}\n", .{size});
 
-        var section_bytes = try allocator.alloc(u8, size);
-        _ = try reader.readAll(section_bytes);
+        const count = try std.leb.readULEB128(u32, reader);
+        std.debug.print("    Import count: {}\n", .{count});
+
+        var import_data_list = std.ArrayList(ImportSectionData).init(allocator);
+        for (0..count) |_| {
+            const module_name_length = try std.leb.readULEB128(u32, reader);
+            const module_name_bytes = try allocator.alloc(u8, module_name_length);
+            _ = try reader.readAll(module_name_bytes);
+
+            const import_name_length = try std.leb.readULEB128(u32, reader);
+            const import_name_bytes = try allocator.alloc(u8, import_name_length);
+            _ = try reader.readAll(import_name_bytes);
+
+            std.debug.print("        {s} -> {s}\n", .{ module_name_bytes, import_name_bytes });
+
+            const import_type: ImportType = @enumFromInt(try reader.readByte());
+            switch (import_type) {
+                .function => {
+                    const type_index = try reader.readByte();
+
+                    try import_data_list.append(ImportSectionData{
+                        .module_name = module_name_bytes,
+                        .import_name = import_name_bytes,
+                        .description = .{
+                            .function = .{
+                                .type_index = type_index,
+                            },
+                        },
+                    });
+                },
+                .table => {
+                    unreachable;
+                },
+                .memory => {
+                    unreachable;
+                },
+                .global => {
+                    unreachable;
+                },
+            }
+        }
 
         return Section{
             .import = .{ .imports = undefined },
+        };
+    }
+
+    fn parseFunctionSectionData(allocator: std.mem.Allocator, reader: anytype) !Section {
+        const size = try std.leb.readULEB128(u32, reader);
+        std.debug.print("    Section size: {}\n", .{size});
+
+        const count = try std.leb.readULEB128(u32, reader);
+        std.debug.print("    Function count: {}\n", .{count});
+
+        const type_indicies_bytes = try allocator.alloc(u8, count);
+        _ = try reader.readAll(type_indicies_bytes);
+
+        var type_indicies_list = std.ArrayList(u32).init(allocator);
+        for (type_indicies_bytes) |byte| {
+            try type_indicies_list.append(byte);
+        }
+
+        return Section{
+            .function = .{ .type_indicies = try type_indicies_list.toOwnedSlice() },
         };
     }
 };
@@ -371,10 +423,19 @@ const TypeSectionData = struct {
     returns: []const ValueType,
 };
 
+const ImportType = enum(u8) {
+    // zig fmt: off
+    function    = 0x00,
+    table       = 0x01,
+    memory      = 0x02,
+    global      = 0x03,
+    // zig fmt: on
+};
+
 const ImportSectionData = struct {
-    module: []const u8,
-    name: []const u8,
-    description: union {
+    module_name: []const u8,
+    import_name: []const u8,
+    description: union(ImportType) {
         function: struct {
             type_index: u32,
         },

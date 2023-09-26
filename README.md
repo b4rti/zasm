@@ -27,10 +27,10 @@ ZASM is designed to provide a lightweight and efficient runtime for WebAssembly 
 To get started with ZASM, you will need to have Zig installed on your system. Once you have Zig installed, you can clone the ZASM repository and build the runtime using the following commands:
 
 ```bash
-git clone https://github.com/b4rti/zasm.git cd zasm zig build
+git clone https://github.com/b4rti/zasm.git && cd zasm zig build
 ```
 
-This will build the ZigWasm runtime and generate a static library that you can link to your application.
+This will build the ZASM runtime and generate a static library that you can link to your application.
 
 ## Usage
 
@@ -39,20 +39,23 @@ To use ZASM in your application, you will need to link against the static librar
 Here's an example of how to load and execute a WebAssembly module using ZASM:
 
 ```zig
-const wasm = @import("zasm");
+const Module = @import("zasm").Module;
 
 pub fn main() !void {
-    const module = try wasm.load_module("path/to/module.wasm");
-    const instance = try module.instantiate();
-    const result = try instance.call("function_name", 1, 2, 3);
-    // Do something with the result...
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    // const module = try Module.fromPath(allocator, "wasm-test/add.wasm");
+    // const module = try Module.fromPath(allocator, "wasm-test/hello-world.wasm");
+    // const module = try Module.fromPath(allocator, "wasm-test/wasi-hello-world.wasm");
+    const module = try Module.fromPath(allocator, "wasm-test/rustpython.wasm");
+    _ = module;
 }
 ```
-For more information on how to use the ZigWasm API, please refer to the API documentation.
+For more information on how to use the ZASM API, please refer to the API documentation.
 
 Contributing
-If you would like to contribute to ZigWasm, please follow the guidelines in the CONTRIBUTING.md file.
+If you would like to contribute to ZASM, please follow the guidelines in the CONTRIBUTING.md file.
 
 License
-ZigWasm is licensed under the MIT License. See the LICENSE file for more information.
+ZASM is licensed under the MIT License. See the LICENSE file for more information.
 
