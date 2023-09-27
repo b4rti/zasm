@@ -4,7 +4,7 @@
     local.get 0
     local.get 1
     i32.add
-    i32.const 69
+    i32.const 72
     i32.add)
   (memory (;0;) 17)
   (global (;0;) (mut i32) (i32.const 1048576))
