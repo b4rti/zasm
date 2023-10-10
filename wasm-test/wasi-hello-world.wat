@@ -20,11 +20,11 @@
         block  ;; label = @3
           block  ;; label = @4
             i32.const 0
-            i32.load8_u offset=1048669
+            i32.load8_u offset=1048689
             br_if 0 (;@4;)
             i32.const 0
             i32.const 1
-            i32.store8 offset=1048669
+            i32.store8 offset=1048689
             block  ;; label = @5
               block  ;; label = @6
                 loop  ;; label = @7
@@ -37,7 +37,7 @@
                   i32.add
                   i32.const 2
                   local.get 1
-                  i32.const 1048655
+                  i32.const 1048576
                   i32.add
                   i32.const 13
                   local.get 1
@@ -67,43 +67,43 @@
                   br_if 0 (;@7;)
                 end
                 i32.const 0
-                i32.load8_u offset=1048669
+                i32.load8_u offset=1048689
                 br_if 1 (;@5;)
-                i32.const 1048630
+                i32.const 1048592
                 i32.const 24
                 call $builtin.default_panic
                 unreachable
               end
               i32.const 0
-              i32.load8_u offset=1048669
+              i32.load8_u offset=1048689
               i32.eqz
               br_if 4 (;@1;)
             end
             i32.const 0
             i32.const 0
-            i32.store8 offset=1048669
+            i32.store8 offset=1048689
             local.get 0
             i32.const 16
             i32.add
             global.set $__stack_pointer
             return
           end
-          i32.const 1048630
+          i32.const 1048592
           i32.const 24
           call $builtin.default_panic
           unreachable
         end
-        i32.const 1048576
+        i32.const 1048624
         i32.const 36
         call $builtin.default_panic
         unreachable
       end
-      i32.const 1048613
+      i32.const 1048672
       i32.const 16
       call $builtin.default_panic
       unreachable
     end
-    i32.const 1048630
+    i32.const 1048592
     i32.const 24
     call $builtin.default_panic
     unreachable)
@@ -174,22 +174,22 @@
                                 i32.store
                                 br 13 (;@1;)
                               end
-                              i32.const 1048630
+                              i32.const 1048592
                               i32.const 24
                               call $builtin.default_panic
                               unreachable
                             end
-                            i32.const 1048630
+                            i32.const 1048592
                             i32.const 24
                             call $builtin.default_panic
                             unreachable
                           end
-                          i32.const 1048630
+                          i32.const 1048592
                           i32.const 24
                           call $builtin.default_panic
                           unreachable
                         end
-                        i32.const 1048630
+                        i32.const 1048592
                         i32.const 24
                         call $builtin.default_panic
                         unreachable
@@ -199,7 +199,7 @@
                       i64.store align=4
                       br 8 (;@1;)
                     end
-                    i32.const 1048630
+                    i32.const 1048592
                     i32.const 24
                     call $builtin.default_panic
                     unreachable
@@ -258,7 +258,7 @@
     local.get 2
     i32.const 8
     i32.add
-    call $debug.print__anon_1954
+    call $debug.print__anon_1950
     unreachable
     unreachable)
   (func $_start (type 2)
@@ -266,7 +266,7 @@
     i32.const 0
     call $proc_exit|wasi_snapshot_preview1
     unreachable)
-  (func $debug.print__anon_1954 (type 0) (param i32)
+  (func $debug.print__anon_1950 (type 0) (param i32)
     (local i32 i32 i32 i64 i32)
     global.get $__stack_pointer
     i32.const 16
@@ -278,11 +278,11 @@
         block  ;; label = @3
           block  ;; label = @4
             i32.const 0
-            i32.load8_u offset=1048669
+            i32.load8_u offset=1048689
             br_if 0 (;@4;)
             i32.const 0
             i32.const 1
-            i32.store8 offset=1048669
+            i32.store8 offset=1048689
             local.get 0
             i32.load offset=4
             local.tee 2
@@ -334,39 +334,39 @@
                 br_if 0 (;@6;)
               end
               i32.const 0
-              i32.load8_u offset=1048669
+              i32.load8_u offset=1048689
               br_if 4 (;@1;)
-              i32.const 1048630
+              i32.const 1048592
               i32.const 24
               call $builtin.default_panic
               unreachable
             end
             i32.const 0
-            i32.load8_u offset=1048669
+            i32.load8_u offset=1048689
             br_if 3 (;@1;)
-            i32.const 1048630
+            i32.const 1048592
             i32.const 24
             call $builtin.default_panic
             unreachable
           end
-          i32.const 1048630
+          i32.const 1048592
           i32.const 24
           call $builtin.default_panic
           unreachable
         end
-        i32.const 1048576
+        i32.const 1048624
         i32.const 36
         call $builtin.default_panic
         unreachable
       end
-      i32.const 1048613
+      i32.const 1048672
       i32.const 16
       call $builtin.default_panic
       unreachable
     end
     i32.const 0
     i32.const 0
-    i32.store8 offset=1048669
+    i32.store8 offset=1048689
     local.get 1
     i32.const 16
     i32.add
@@ -375,4 +375,4 @@
   (global $__stack_pointer (mut i32) (i32.const 1048576))
   (export "memory" (memory 0))
   (export "_start" (func $_start))
-  (data $.rodata (i32.const 1048576) "start index is larger than end index\00integer overflow\00reached unreachable code\00Hello, world!\00"))
+  (data $.data (i32.const 1048576) "Hello, world!\00\00\00reached unreachable code\00\00\00\00\00\00\00\00start index is larger than end index\00\00\00\00\00\00\00\00\00\00\00\00integer overflow\00"))
