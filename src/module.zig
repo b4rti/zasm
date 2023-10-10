@@ -63,8 +63,7 @@ pub const Module = struct {
         for (self.sections) |section| {
             switch (section) {
                 .custom => {
-                    self.allocator.free(section.custom.name);
-                    self.allocator.free(section.custom.data);
+                    self.allocator.free(section.custom);
                 },
                 .type => {
                     for (section.type.types) |@"type"| {
@@ -105,27 +104,23 @@ pub const Module = struct {
                     // nothing to free
                 },
                 .element => {
-                    // for (section.element.segments) |segment| {
-                    //     self.allocator.free(segment.offset);
-                    //     self.allocator.free(segment.init);
-                    // }
+                    for (section.element.segments) |segment| {
+                        self.allocator.free(segment.offset);
+                    }
                     self.allocator.free(section.element.segments);
                 },
                 .code => {
-                    // for (section.code.bodies) |body| {
-                    //     for (body.locals) |local| {
-                    //         self.allocator.free(local.type);
-                    //     }
-                    //     self.allocator.free(body.locals);
-                    //     self.allocator.free(body.code);
-                    // }
+                    for (section.code.bodies) |body| {
+                        self.allocator.free(body.locals);
+                        self.allocator.free(body.code);
+                    }
                     self.allocator.free(section.code.bodies);
                 },
                 .data => {
-                    // for (section.data.segments) |segment| {
-                    //     self.allocator.free(segment.offset);
-                    //     self.allocator.free(segment.init);
-                    // }
+                    for (section.data.segments) |segment| {
+                        self.allocator.free(segment.offset);
+                        self.allocator.free(segment.data);
+                    }
                     self.allocator.free(section.data.segments);
                 },
             }
@@ -164,13 +159,10 @@ pub const Module = struct {
     }
 
     fn parseCustomSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
-        _ = allocator;
-        _ = reader;
+        const data = try reader.readAllAlloc(allocator, std.math.maxInt(u32));
+
         return Section{
-            .custom = .{
-                .name = "",
-                .data = undefined,
-            },
+            .custom = data,
         };
     }
 
@@ -411,7 +403,6 @@ pub const Module = struct {
         return Section{ .start = .{ .function_index = try std.leb.readULEB128(u32, reader) } };
     }
 
-    // hmmm - need more research for this, kinda komplex
     fn parseElementSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
         const count = try std.leb.readULEB128(u32, reader);
         std.debug.print("    Element count: {}\n", .{count});
@@ -431,8 +422,6 @@ pub const Module = struct {
                 .elements = elements,
             });
         }
-
-        std.debug.print("        element_data_list: {any}\n", .{element_data_list.items});
 
         return Section{ .element = .{
             .segments = try element_data_list.toOwnedSlice(),
@@ -475,22 +464,29 @@ pub const Module = struct {
         const count = try std.leb.readULEB128(u32, reader);
         std.debug.print("    Data count: {}\n", .{count});
 
-        var data_list = std.ArrayList(CodeSectionData).init(allocator);
-        for (0..count) |_| {}
+        var data_list = std.ArrayList(DataSectionData).init(allocator);
+        for (0..count) |_| {
+            const index = try std.leb.readULEB128(u32, reader);
+            const offset = try reader.readUntilDelimiterAlloc(allocator, 0x0B, std.math.maxInt(u32));
+            const size = try std.leb.readULEB128(u32, reader);
+            const data = try allocator.alloc(u8, size);
+            _ = try reader.readAll(data);
 
-        std.debug.print("        data_list: {any}\n", .{data_list.items});
+            try data_list.append(DataSectionData{
+                .index = index,
+                .offset = offset,
+                .data = data,
+            });
+        }
 
-        return Section{ .code = .{
-            .bodies = try data_list.toOwnedSlice(),
+        return Section{ .data = .{
+            .segments = try data_list.toOwnedSlice(),
         } };
     }
 };
 
 const Section = union(SectionID) {
-    custom: struct {
-        name: []const u8,
-        data: []const u8,
-    },
+    custom: []const u8,
     type: struct {
         types: []const TypeSectionData,
     },
@@ -644,5 +640,5 @@ const CodeSectionData = struct {
 const DataSectionData = struct {
     index: u32,
     offset: []const u8,
-    init: []const u8,
+    data: []const u8,
 };
