@@ -15,8 +15,32 @@ pub fn main() !void {
     defer module.deinit();
 }
 
-test "wasm-test/add.wasm" {
+test "module - wasm-test/add.wasm" {
     const allocator = std.testing.allocator;
     const module = try Module.fromPath(allocator, "wasm-test/add.wasm");
+    module.deinit();
+}
+
+test "module - wasm-test/hello-world.wasm" {
+    const allocator = std.testing.allocator;
+    const module = try Module.fromPath(allocator, "wasm-test/hello-world.wasm");
+    module.deinit();
+}
+
+test "module - wasm-test/wasi-hello-world.wasm" {
+    const allocator = std.testing.allocator;
+    const module = try Module.fromPath(allocator, "wasm-test/wasi-hello-world.wasm");
+    module.deinit();
+}
+
+test "module - wasm-test/rustpython.wasm" {
+    const allocator = std.testing.allocator;
+    const module = try Module.fromPath(allocator, "wasm-test/rustpython.wasm");
+    module.deinit();
+}
+
+test "module - wasm-test/zig.wasm" {
+    const allocator = std.testing.allocator;
+    const module = try Module.fromPath(allocator, "wasm-test/zig.wasm");
     module.deinit();
 }

@@ -7,10 +7,26 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug",
+            "name": "Debug add.wasm",
             "program": "${workspaceFolder}/zig-out/bin/zasm",
             "args": ["wasm-test/add.wasm"],
             "cwd": "${workspaceFolder}"
-        }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug wasi-hello-world.wasm",
+            "program": "${workspaceFolder}/zig-out/bin/zasm",
+            "args": ["wasm-test/wasi-hello-world.wasm"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug zig.wasm",
+            "program": "${workspaceFolder}/zig-out/bin/zasm",
+            "args": ["wasm-test/zig.wasm"],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

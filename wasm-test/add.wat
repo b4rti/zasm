@@ -14,4 +14,5 @@
   (export "add" (func 0))
   (export "nice" (global 1))
   (export "blaze_it" (global 2))
-  (data (;0;) (i32.const 1048576) "E\00\00\00420"))
+  (data (;0;) (i32.const 1048576) "E\00\00\00")
+  (data (;1;) (i32.const 1048580) "\08\00\10\00420\00"))
