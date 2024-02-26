@@ -1,10 +1,11 @@
 const std = @import("std");
 
+const ModuleReader = std.io.FixedBufferStream([]const u8).Reader;
 const SectionReader = std.io.FixedBufferStream([]u8).Reader;
 
 pub const Module = struct {
     allocator: std.mem.Allocator,
-    reader: SectionReader,
+    reader: std.io.FixedBufferStream([]const u8).Reader,
     sections: []const Section,
 
     pub fn fromPath(allocator: std.mem.Allocator, module_path: []const u8) !Module {
@@ -22,9 +23,9 @@ pub const Module = struct {
         return try Module.fromReader(allocator, module_reader);
     }
 
-    pub fn fromReader(allocator: std.mem.Allocator, module_reader: anytype) !Module {
-        try checkMagic(&module_reader);
-        try checkVersion(&module_reader);
+    pub fn fromReader(allocator: std.mem.Allocator, module_reader: ModuleReader) !Module {
+        try checkMagic(module_reader);
+        try checkVersion(module_reader);
 
         var section_list = std.ArrayList(Section).init(allocator);
 
@@ -185,7 +186,7 @@ pub const Module = struct {
         self.allocator.free(self.sections);
     }
 
-    fn checkMagic(reader: anytype) !void {
+    fn checkMagic(reader: ModuleReader) !void {
         var magic: [4]u8 = undefined;
         _ = try reader.readAll(&magic);
         if (!std.mem.eql(u8, &magic, &[4]u8{ 0x00, 0x61, 0x73, 0x6D })) {
@@ -193,7 +194,7 @@ pub const Module = struct {
         }
     }
 
-    fn checkVersion(reader: anytype) !void {
+    fn checkVersion(reader: ModuleReader) !void {
         var version: [4]u8 = undefined;
         _ = try reader.readAll(&version);
         std.debug.print("Version: {}.{}.{}.{}\n", .{ version[0], version[1], version[2], version[3] });
@@ -202,12 +203,12 @@ pub const Module = struct {
         }
     }
 
-    fn createSectionReader(allocator: std.mem.Allocator, module_reader: anytype) std.io.FixedBufferStream([]u8).Reader {
+    fn createSectionReader(allocator: std.mem.Allocator, module_reader: ModuleReader) SectionReader {
         // TODO: !!! switch to using sub-slices instead of allocating new memory and leaking it !!!
         const section_size = std.leb.readULEB128(usize, module_reader) catch unreachable;
         const section_bytes = allocator.alloc(u8, section_size) catch unreachable;
         _ = module_reader.readAll(section_bytes) catch unreachable;
-        const section_buffer = std.io.fixedBufferStream(section_bytes);
+        var section_buffer = std.io.fixedBufferStream(section_bytes);
 
         return section_buffer.reader();
     }
@@ -503,6 +504,8 @@ pub const Module = struct {
             const code = try allocator.alloc(u8, body_size - reader_count);
             _ = try reader.readAll(code);
 
+            std.debug.print("        Code: {any}\n", .{code});
+
             try code_data_list.append(CodeSectionData{
                 .locals = locals,
                 .code = code,
@@ -525,6 +528,8 @@ pub const Module = struct {
             const size = try std.leb.readULEB128(u32, reader);
             const data = try allocator.alloc(u8, size);
             _ = try reader.readAll(data);
+
+            std.debug.print("        Data: {any}\n", .{data});
 
             try data_list.append(DataSectionData{
                 .index = index,
