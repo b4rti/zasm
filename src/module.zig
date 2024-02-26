@@ -21,73 +21,73 @@ pub const Module = struct {
             switch (section_id) {
                 .custom => {
                     std.debug.print("Custom Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseCustomSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .type => {
                     std.debug.print("Type Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseTypeSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .import => {
                     std.debug.print("Import Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseImportSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .function => {
                     std.debug.print("Function Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseFunctionSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .table => {
                     std.debug.print("Table Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseTableSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .memory => {
                     std.debug.print("Memory Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseMemorySectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .global => {
                     std.debug.print("Global Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseGlobalSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .@"export" => {
                     std.debug.print("Export Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseExportSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .start => {
                     std.debug.print("Start Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseStartSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .element => {
                     std.debug.print("Element Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseElementSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .code => {
                     std.debug.print("Code Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseCodeSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
                 .data => {
                     std.debug.print("Data Section\n", .{});
-                    var section_reader = createSectionReader(allocator, module_reader);
+                    const section_reader = createSectionReader(allocator, module_reader);
                     const section = try parseDataSectionData(allocator, section_reader);
                     try section_list.append(section);
                 },
@@ -101,6 +101,8 @@ pub const Module = struct {
     }
 
     pub fn fromPath(allocator: std.mem.Allocator, path: []const u8) !Module {
+        std.debug.print("\n\nLoading module from path: {s}\n", .{path});
+
         var file = try std.fs.cwd().openFile(path, .{ .mode = .read_only });
         defer file.close();
 
@@ -197,8 +199,7 @@ pub const Module = struct {
         }
     }
 
-    fn createSectionReader(allocator: std.mem.Allocator, module_reader: anytype) std.io.FixedBufferStream([]u8).Reader {
-        // TODO: !!! switch to using sub-slices instead of allocating new memory and leaking it !!!
+    fn createSectionReader(allocator: std.mem.Allocator, module_reader: anytype) SectionReader {
         const section_size = std.leb.readULEB128(usize, module_reader) catch unreachable;
         const section_bytes = allocator.alloc(u8, section_size) catch unreachable;
         _ = module_reader.readAll(section_bytes) catch unreachable;
@@ -380,7 +381,7 @@ pub const Module = struct {
         for (0..count) |_| {
             const global_type: ValueType = @enumFromInt(try reader.readByte());
             const global_mutability = (try reader.readByte() > 0);
-            var global_init = try reader.readUntilDelimiterAlloc(allocator, 0x0B, std.math.maxInt(usize));
+            const global_init = try reader.readUntilDelimiterAlloc(allocator, 0x0B, std.math.maxInt(usize));
 
             try global_data_list.append(GlobalSectionData{
                 .type = global_type,
