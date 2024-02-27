@@ -13,6 +13,11 @@ pub fn main() !void {
 
     const module = try Module.fromPath(allocator, args[1]);
     defer module.deinit();
+
+    const engine = try Engine.init(allocator);
+    defer engine.deinit();
+
+    engine.addModule(module);
 }
 
 test "module - wasm-test/add.wasm" {
