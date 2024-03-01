@@ -7,7 +7,7 @@ const SectionReader = std.io.FixedBufferStream([]u8).Reader;
 pub const Module = struct {
     allocator: std.mem.Allocator,
     reader: std.io.FixedBufferStream([]const u8).Reader,
-    sections: []const Section,
+    sections: Sections,
 
     pub fn fromPath(allocator: std.mem.Allocator, module_path: []const u8) !Module {
         var file = try std.fs.cwd().openFile(module_path, .{ .mode = .read_only });
@@ -28,7 +28,7 @@ pub const Module = struct {
         try checkMagic(module_reader);
         try checkVersion(module_reader);
 
-        var section_list = std.ArrayList(Section).init(allocator);
+        var sections = std.mem.zeroInit(Sections, .{});
 
         while (true) {
             const section_id: SectionID = @enumFromInt(module_reader.readByte() catch break);
@@ -37,74 +37,62 @@ pub const Module = struct {
                 .custom => {
                     print("Custom Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseCustomSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.custom = try parseCustomSection(allocator, section_reader);
                 },
                 .type => {
                     print("Type Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseTypeSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.type = try parseTypeSection(allocator, section_reader);
                 },
                 .import => {
                     print("Import Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseImportSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.import = try parseImportSection(allocator, section_reader);
                 },
                 .function => {
                     print("Function Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseFunctionSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.function = try parseFunctionSection(allocator, section_reader);
                 },
                 .table => {
                     print("Table Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseTableSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.table = try parseTableSection(allocator, section_reader);
                 },
                 .memory => {
                     print("Memory Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseMemorySectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.memory = try parseMemorySection(allocator, section_reader);
                 },
                 .global => {
                     print("Global Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseGlobalSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.global = try parseGlobalSection(allocator, section_reader);
                 },
                 .@"export" => {
                     print("Export Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseExportSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.@"export" = try parseExportSection(allocator, section_reader);
                 },
                 .start => {
                     print("Start Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseStartSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.start = try parseStartSection(allocator, section_reader);
                 },
                 .element => {
                     print("Element Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseElementSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.element = try parseElementSection(allocator, section_reader);
                 },
                 .code => {
                     print("Code Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseCodeSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.code = try parseCodeSection(allocator, section_reader);
                 },
                 .data => {
                     print("Data Section\n", .{});
                     const section_reader = createSectionReader(allocator, module_reader);
-                    const section = try parseDataSectionData(allocator, section_reader);
-                    try section_list.append(section);
+                    sections.data = try parseDataSection(allocator, section_reader);
                 },
             }
         }
@@ -112,79 +100,12 @@ pub const Module = struct {
         return Module{
             .allocator = allocator,
             .reader = module_reader,
-            .sections = try section_list.toOwnedSlice(),
+            .sections = sections,
         };
     }
 
     pub fn deinit(self: Module) void {
-        for (self.sections) |section| {
-            switch (section) {
-                .custom => {
-                    self.allocator.free(section.custom);
-                },
-                .type => {
-                    for (section.type.types) |@"type"| {
-                        self.allocator.free(@"type".params);
-                        self.allocator.free(@"type".returns);
-                    }
-                    self.allocator.free(section.type.types);
-                },
-                .import => {
-                    for (section.import.imports) |import| {
-                        self.allocator.free(import.module_name);
-                        self.allocator.free(import.import_name);
-                    }
-                    self.allocator.free(section.import.imports);
-                },
-                .function => {
-                    self.allocator.free(section.function.type_indicies);
-                },
-                .table => {
-                    self.allocator.free(section.table.tables);
-                },
-                .memory => {
-                    self.allocator.free(section.memory.memories);
-                },
-                .global => {
-                    for (section.global.globals) |global| {
-                        self.allocator.free(global.init);
-                    }
-                    self.allocator.free(section.global.globals);
-                },
-                .@"export" => {
-                    for (section.@"export".exports) |@"export"| {
-                        self.allocator.free(@"export".name);
-                    }
-                    self.allocator.free(section.@"export".exports);
-                },
-                .start => {
-                    // nothing to free
-                },
-                .element => {
-                    for (section.element.segments) |segment| {
-                        self.allocator.free(segment.offset);
-                    }
-                    self.allocator.free(section.element.segments);
-                },
-                .code => {
-                    for (section.code.bodies) |body| {
-                        self.allocator.free(body.locals);
-                        self.allocator.free(body.code);
-                    }
-                    self.allocator.free(section.code.bodies);
-                },
-                .data => {
-                    for (section.data.segments) |segment| {
-                        self.allocator.free(segment.offset);
-                        self.allocator.free(segment.data);
-                    }
-                    self.allocator.free(section.data.segments);
-                },
-            }
-        }
-
-        // self.allocator.free(self.reader.context.buffer);
-        self.allocator.free(self.sections);
+        _ = self;
     }
 
     fn checkMagic(reader: ModuleReader) !void {
@@ -214,20 +135,21 @@ pub const Module = struct {
         return section_buffer.reader();
     }
 
-    fn parseCustomSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseCustomSection(allocator: std.mem.Allocator, reader: SectionReader) !CustomSection {
         const data = try reader.readAllAlloc(allocator, std.math.maxInt(u32));
+        _ = data;
 
-        return Section{
-            .custom = data,
+        return CustomSection{
+            .map = std.StringHashMap([]const u8).init(allocator),
         };
     }
 
-    fn parseTypeSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseTypeSection(allocator: std.mem.Allocator, reader: SectionReader) !TypeSection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Type count: {}\n", .{count});
 
-        var type_data_list = std.ArrayList(TypeSectionData).init(allocator);
-        for (0..count) |_| {
+        var segments = try allocator.alloc(TypeSectionSegment, count);
+        for (0..count) |segment_index| {
             try reader.skipBytes(1, .{}); // always 0x60 - function signature
 
             const params_count = try std.leb.readULEB128(u32, reader);
@@ -235,38 +157,38 @@ pub const Module = struct {
             defer allocator.free(params_bytes);
             _ = try reader.readAll(params_bytes);
 
+            var params = try allocator.alloc(ValueType, params_count);
+            for (0..params_count) |params_index| {
+                params[params_index] = @enumFromInt(params_bytes[params_index]);
+            }
+
             const returns_count = try std.leb.readULEB128(u32, reader);
             const returns_bytes = try allocator.alloc(u8, returns_count);
             defer allocator.free(returns_bytes);
             _ = try reader.readAll(returns_bytes);
 
-            var params_list = std.ArrayList(ValueType).init(allocator);
-            for (params_bytes) |param| {
-                try params_list.append(@enumFromInt(param));
+            var returns = try allocator.alloc(ValueType, returns_count);
+            for (0..returns_count) |returns_index| {
+                returns[returns_index] = @enumFromInt(returns_bytes[returns_index]);
             }
 
-            var returns_list = std.ArrayList(ValueType).init(allocator);
-            for (returns_bytes) |returns_byte| {
-                try returns_list.append(@enumFromInt(returns_byte));
-            }
-
-            try type_data_list.append(TypeSectionData{
-                .params = try params_list.toOwnedSlice(),
-                .returns = try returns_list.toOwnedSlice(),
-            });
+            segments[segment_index] = TypeSectionSegment{
+                .params = params,
+                .returns = returns,
+            };
         }
 
-        return Section{
-            .type = .{ .types = try type_data_list.toOwnedSlice() },
+        return TypeSection{
+            .segments = segments,
         };
     }
 
-    fn parseImportSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseImportSection(allocator: std.mem.Allocator, reader: SectionReader) !ImportSection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Import count: {}\n", .{count});
 
-        var import_data_list = std.ArrayList(ImportSectionData).init(allocator);
-        for (0..count) |_| {
+        var segments = try allocator.alloc(ImportSectionSegemnt, count);
+        for (0..count) |segment_index| {
             const module_name_length = try std.leb.readULEB128(u32, reader);
             const module_name_bytes = try allocator.alloc(u8, module_name_length);
             _ = try reader.readAll(module_name_bytes);
@@ -280,7 +202,7 @@ pub const Module = struct {
                 .function => {
                     const type_index = try std.leb.readULEB128(u32, reader);
 
-                    try import_data_list.append(ImportSectionData{
+                    segments[segment_index] = ImportSectionSegemnt{
                         .module_name = module_name_bytes,
                         .import_name = import_name_bytes,
                         .description = .{
@@ -288,7 +210,7 @@ pub const Module = struct {
                                 .type_index = type_index,
                             },
                         },
-                    });
+                    };
                 },
                 .table => {
                     unreachable;
@@ -302,12 +224,12 @@ pub const Module = struct {
             }
         }
 
-        return Section{
-            .import = .{ .imports = try import_data_list.toOwnedSlice() },
+        return ImportSection{
+            .segments = segments,
         };
     }
 
-    fn parseFunctionSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseFunctionSection(allocator: std.mem.Allocator, reader: SectionReader) !FunctionSection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Function count: {}\n", .{count});
 
@@ -315,46 +237,46 @@ pub const Module = struct {
         defer allocator.free(type_indicies_bytes);
         _ = try reader.readAll(type_indicies_bytes);
 
-        var type_indicies_list = std.ArrayList(u32).init(allocator);
-        for (type_indicies_bytes) |byte| {
-            try type_indicies_list.append(byte);
+        var type_indicies = try allocator.alloc(u32, count);
+        for (0..count) |type_index| {
+            type_indicies[type_index] = type_indicies_bytes[type_index];
         }
 
-        return Section{
-            .function = .{ .type_indicies = try type_indicies_list.toOwnedSlice() },
+        return FunctionSection{
+            .type_indicies = type_indicies,
         };
     }
 
-    fn parseTableSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseTableSection(allocator: std.mem.Allocator, reader: SectionReader) !TableSection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Table count: {}\n", .{count});
 
-        var table_data_list = std.ArrayList(TableSectionData).init(allocator);
-        for (0..count) |_| {
+        var segments = try allocator.alloc(TableSectionSegments, count);
+        for (0..count) |segment_index| {
             const table_type: ValueType = @enumFromInt(try reader.readByte());
             const table_min = try std.leb.readULEB128(u32, reader);
             const table_max = try std.leb.readULEB128(u32, reader);
 
-            try table_data_list.append(TableSectionData{
+            segments[segment_index] = TableSectionSegments{
                 .type = table_type,
                 .limits = .{
                     .min = table_min,
                     .max = table_max,
                 },
-            });
+            };
         }
 
-        return Section{ .table = .{
-            .tables = try table_data_list.toOwnedSlice(),
-        } };
+        return TableSection{
+            .segments = segments,
+        };
     }
 
-    fn parseMemorySectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseMemorySection(allocator: std.mem.Allocator, reader: SectionReader) !MemorySection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Memory count: {}\n", .{count});
 
-        var memory_data_list = std.ArrayList(MemorySectionData).init(allocator);
-        for (0..count) |_| {
+        var segments = try allocator.alloc(MemorySectionSegment, count);
+        for (0..count) |segment_index| {
             const memory_has_max = try reader.readByte();
             const memory_min = try std.leb.readULEB128(u32, reader);
             var memory_max: u32 = 0;
@@ -362,31 +284,31 @@ pub const Module = struct {
                 memory_max = try std.leb.readULEB128(u32, reader);
             }
 
-            try memory_data_list.append(MemorySectionData{
+            segments[segment_index] = MemorySectionSegment{
                 .limits = .{
                     .has_max = (memory_has_max > 0),
                     .min = memory_min,
                     .max = memory_max,
                 },
-            });
+            };
         }
 
-        return Section{ .memory = .{
-            .memories = try memory_data_list.toOwnedSlice(),
-        } };
+        return MemorySection{
+            .segments = segments,
+        };
     }
 
-    fn parseGlobalSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseGlobalSection(allocator: std.mem.Allocator, reader: SectionReader) !GlobalSection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Global count: {}\n", .{count});
 
-        var global_data_list = std.ArrayList(GlobalSectionData).init(allocator);
-        for (0..count) |_| {
+        var segments = try allocator.alloc(GlobalSectionSegment, count);
+        for (0..count) |segment_index| {
             const global_type: ValueType = @enumFromInt(try reader.readByte());
             const global_mutability = (try reader.readByte() > 0);
             const global_init = try reader.readUntilDelimiterAlloc(allocator, 0x0B, std.math.maxInt(usize));
 
-            try global_data_list.append(GlobalSectionData{
+            segments[segment_index] = GlobalSectionSegment{
                 .type = global_type,
                 .mutability = global_mutability,
                 .init = try std.mem.concat(
@@ -394,102 +316,102 @@ pub const Module = struct {
                     u8,
                     &[_][]const u8{ global_init, "\x0B" }, // zig concat is a bit """different"""
                 ),
-            });
+            };
         }
 
-        return Section{ .global = .{
-            .globals = try global_data_list.toOwnedSlice(),
-        } };
+        return GlobalSection{
+            .segments = segments,
+        };
     }
 
-    fn parseExportSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseExportSection(allocator: std.mem.Allocator, reader: SectionReader) !ExportSection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Export count: {}\n", .{count});
 
-        var export_data_list = std.ArrayList(ExportSectionData).init(allocator);
-        for (0..count) |_| {
+        var segments = try allocator.alloc(ExportSectionSegment, count);
+        for (0..count) |segment_index| {
             const export_name_length = try std.leb.readULEB128(u32, reader);
             const export_name_bytes = try allocator.alloc(u8, export_name_length);
             _ = try reader.readAll(export_name_bytes);
-
             const export_type: ImportExportType = @enumFromInt(try reader.readByte());
 
             switch (export_type) {
                 .function => {
-                    try export_data_list.append(ExportSectionData{
+                    segments[segment_index] = ExportSectionSegment{
                         .name = export_name_bytes,
                         .description = .{
                             .function = try std.leb.readULEB128(u32, reader),
                         },
-                    });
+                    };
                 },
                 .table => {
-                    try export_data_list.append(ExportSectionData{
+                    segments[segment_index] = ExportSectionSegment{
                         .name = export_name_bytes,
                         .description = .{
                             .table = try std.leb.readULEB128(u32, reader),
                         },
-                    });
+                    };
                 },
                 .memory => {
-                    try export_data_list.append(ExportSectionData{
+                    segments[segment_index] = ExportSectionSegment{
                         .name = export_name_bytes,
                         .description = .{
                             .memory = try std.leb.readULEB128(u32, reader),
                         },
-                    });
+                    };
                 },
                 .global => {
-                    try export_data_list.append(ExportSectionData{
+                    segments[segment_index] = ExportSectionSegment{
                         .name = export_name_bytes,
                         .description = .{
                             .global = try std.leb.readULEB128(u32, reader),
                         },
-                    });
+                    };
                 },
             }
         }
 
-        return Section{ .@"export" = .{
-            .exports = try export_data_list.toOwnedSlice(),
-        } };
+        return ExportSection{
+            .segments = segments,
+        };
     }
 
-    fn parseStartSectionData(_: std.mem.Allocator, reader: SectionReader) !Section {
-        return Section{ .start = .{ .function_index = try std.leb.readULEB128(u32, reader) } };
+    fn parseStartSection(_: std.mem.Allocator, reader: SectionReader) !StartSection {
+        return StartSection{ .function_index = try std.leb.readULEB128(u32, reader) };
     }
 
-    fn parseElementSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseElementSection(allocator: std.mem.Allocator, reader: SectionReader) !ElementSection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Element count: {}\n", .{count});
 
-        var element_data_list = std.ArrayList(ElementSectionData).init(allocator);
-        for (0..count) |_| {
+        var segments = try allocator.alloc(ElementSectionSegment, count);
+        for (0..count) |segment_index| {
             const index = try std.leb.readULEB128(u32, reader);
             const offset = try reader.readUntilDelimiterAlloc(allocator, 0x0B, std.math.maxInt(u32));
             const element_count = try std.leb.readULEB128(u32, reader);
+
             var elements = try allocator.alloc(u32, element_count);
-            for (0..element_count) |element_index| {
-                elements[element_index] = try std.leb.readULEB128(u32, reader);
+            for (0..element_count) |ii| {
+                elements[ii] = try std.leb.readULEB128(u32, reader);
             }
-            try element_data_list.append(ElementSectionData{
+            segments[segment_index] = ElementSectionSegment{
                 .index = index,
                 .offset = try std.mem.concat(allocator, u8, &[_][]const u8{ offset, "\x0B" }),
                 .elements = elements,
-            });
+            };
         }
 
-        return Section{ .element = .{
-            .segments = try element_data_list.toOwnedSlice(),
-        } };
+        return ElementSection{
+            .segments = segments,
+        };
     }
 
-    fn parseCodeSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseCodeSection(allocator: std.mem.Allocator, reader: SectionReader) !CodeSection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Code count: {}\n", .{count});
 
-        var code_data_list = std.ArrayList(CodeSectionData).init(allocator);
-        for (0..count) |_| {
+        var segments = try allocator.alloc(CodeSectionSegment, count);
+        for (0..count) |segment_index| {
             const body_size = try std.leb.readULEB128(u32, reader); // body_size
             const reader_start = reader.context.pos;
 
@@ -507,23 +429,23 @@ pub const Module = struct {
 
             // print("        Code: {any}\n", .{code});
 
-            try code_data_list.append(CodeSectionData{
+            segments[segment_index] = CodeSectionSegment{
                 .locals = locals,
                 .code = code,
-            });
+            };
         }
 
-        return Section{ .code = .{
-            .bodies = try code_data_list.toOwnedSlice(),
-        } };
+        return CodeSection{
+            .segments = segments,
+        };
     }
 
-    fn parseDataSectionData(allocator: std.mem.Allocator, reader: SectionReader) !Section {
+    fn parseDataSection(allocator: std.mem.Allocator, reader: SectionReader) !DataSection {
         const count = try std.leb.readULEB128(u32, reader);
         print("    Data count: {}\n", .{count});
 
-        var data_list = std.ArrayList(DataSectionData).init(allocator);
-        for (0..count) |_| {
+        var segments = try allocator.alloc(DataSectionSegment, count);
+        for (0..count) |segment_index| {
             const index = try std.leb.readULEB128(u32, reader);
             const offset = try reader.readUntilDelimiterAlloc(allocator, 0x0B, std.math.maxInt(u32));
             const size = try std.leb.readULEB128(u32, reader);
@@ -532,54 +454,32 @@ pub const Module = struct {
 
             // print("        Data: {any}\n", .{data});
 
-            try data_list.append(DataSectionData{
+            segments[segment_index] = DataSectionSegment{
                 .index = index,
                 .offset = offset,
                 .data = data,
-            });
+            };
         }
 
-        return Section{ .data = .{
-            .segments = try data_list.toOwnedSlice(),
-        } };
+        return DataSection{
+            .segments = segments,
+        };
     }
 };
 
-const Section = union(SectionID) {
-    custom: []const u8,
-    type: struct {
-        types: []const TypeSectionData,
-    },
-    import: struct {
-        imports: []const ImportSectionData,
-    },
-    function: struct {
-        type_indicies: []const u32,
-    },
-    table: struct {
-        tables: []const TableSectionData,
-    },
-    memory: struct {
-        memories: []const MemorySectionData,
-    },
-    global: struct {
-        globals: []const GlobalSectionData,
-    },
-    @"export": struct {
-        exports: []const ExportSectionData,
-    },
-    start: struct {
-        function_index: u32,
-    },
-    element: struct {
-        segments: []const ElementSectionData,
-    },
-    code: struct {
-        bodies: []const CodeSectionData,
-    },
-    data: struct {
-        segments: []const DataSectionData,
-    },
+const Sections = struct {
+    custom: ?CustomSection,
+    type: ?TypeSection,
+    import: ?ImportSection,
+    function: ?FunctionSection,
+    table: ?TableSection,
+    memory: ?MemorySection,
+    global: ?GlobalSection,
+    @"export": ?ExportSection,
+    start: ?StartSection,
+    element: ?ElementSection,
+    code: ?CodeSection,
+    data: ?DataSection,
 };
 
 const SectionID = enum(u8) {
@@ -630,12 +530,25 @@ const Limits = struct {
     max: u32,
 };
 
-const TypeSectionData = struct {
+const CodeLocal = struct {
+    count: u32,
+    type: ValueType,
+};
+
+const CustomSection = struct {
+    map: std.StringHashMap([]const u8),
+};
+
+const TypeSectionSegment = struct {
     params: []const ValueType,
     returns: []const ValueType,
 };
 
-const ImportSectionData = struct {
+const TypeSection = struct {
+    segments: []const TypeSectionSegment,
+};
+
+const ImportSectionSegemnt = struct {
     module_name: []const u8,
     import_name: []const u8,
     description: union(ImportExportType) {
@@ -656,27 +569,42 @@ const ImportSectionData = struct {
     },
 };
 
-const TableSectionData = struct {
+const ImportSection = struct {
+    segments: []const ImportSectionSegemnt,
+};
+
+const FunctionSection = struct {
+    type_indicies: []const u32,
+};
+
+const TableSectionSegments = struct {
     type: ValueType,
     limits: Limits,
 };
 
-const MemorySectionData = struct {
+const TableSection = struct {
+    segments: []const TableSectionSegments,
+};
+
+const MemorySectionSegment = struct {
     limits: Limits,
 };
 
-const CodeLocal = struct {
-    count: u32,
-    type: ValueType,
+const MemorySection = struct {
+    segments: []const MemorySectionSegment,
 };
 
-const GlobalSectionData = struct {
+const GlobalSectionSegment = struct {
     type: ValueType,
     mutability: bool,
     init: []const u8,
 };
 
-const ExportSectionData = struct {
+const GlobalSection = struct {
+    segments: []const GlobalSectionSegment,
+};
+
+const ExportSectionSegment = struct {
     name: []const u8,
     description: union(ImportExportType) {
         function: u32,
@@ -686,19 +614,39 @@ const ExportSectionData = struct {
     },
 };
 
-const ElementSectionData = struct {
+const ExportSection = struct {
+    segments: []const ExportSectionSegment,
+};
+
+const StartSection = struct {
+    function_index: u32,
+};
+
+const ElementSectionSegment = struct {
     index: u32,
     offset: []const u8,
     elements: []const u32,
 };
 
-const CodeSectionData = struct {
+const ElementSection = struct {
+    segments: []const ElementSectionSegment,
+};
+
+const CodeSectionSegment = struct {
     locals: []const CodeLocal,
     code: []const u8,
 };
 
-const DataSectionData = struct {
+const CodeSection = struct {
+    segments: []const CodeSectionSegment,
+};
+
+const DataSectionSegment = struct {
     index: u32,
     offset: []const u8,
     data: []const u8,
+};
+
+const DataSection = struct {
+    segments: []const DataSectionSegment,
 };
