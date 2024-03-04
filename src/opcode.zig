@@ -314,6 +314,7 @@ pub const OPCode = enum(u32) {
     @"i64.trunc_sat_f32_u"  = 0xFC_05,
     @"i64.trunc_sat_f64_s"  = 0xFC_06,
     @"i64.trunc_sat_f64_u"  = 0xFC_07,
+    //
     @"memory.init"          = 0xFC_08,
     @"data.drop"            = 0xFC_09,
     @"memory.copy"          = 0xFC_0A,
@@ -338,6 +339,7 @@ pub const OPCode = enum(u32) {
     @"v128.load64_splat"    = 0xFD_0A,
     @"v128.store"           = 0xFD_0B,
     @"v128.const"           = 0xFD_0C,
+    //
     @"i8x16.shuffle"        = 0xFD_0D,
     @"i8x16.swizzle"        = 0xFD_0E,
     @"i8x16.splat"          = 0xFD_0F,
@@ -346,6 +348,54 @@ pub const OPCode = enum(u32) {
     @"i64x2.splat"          = 0xFD_12,
     @"f32x4.splat"          = 0xFD_13,
     @"f64x2.splat"          = 0xFD_14,
+    //
+    @"i8x16.eq"             = 0xFD_23,
+    @"i8x16.ne"             = 0xFD_24,
+    @"i8x16.lt_s"           = 0xFD_25,
+    @"i8x16.lt_u"           = 0xFD_26,
+    @"i8x16.gt_s"           = 0xFD_27,
+    @"i8x16.gt_u"           = 0xFD_28,
+    @"i8x16.le_s"           = 0xFD_29,
+    @"i8x16.le_u"           = 0xFD_2A,
+    @"i8x16.ge_s"           = 0xFD_2B,
+    @"i8x16.ge_u"           = 0xFD_2C,
+    //
+    @"i16x8.eq"             = 0xFD_2D,
+    @"i16x8.ne"             = 0xFD_2E,
+    @"i16x8.lt_s"           = 0xFD_2F,
+    @"i16x8.lt_u"           = 0xFD_30,
+    @"i16x8.gt_s"           = 0xFD_31,
+    @"i16x8.gt_u"           = 0xFD_32,
+    @"i16x8.le_s"           = 0xFD_33,
+    @"i16x8.le_u"           = 0xFD_34,
+    @"i16x8.ge_s"           = 0xFD_35,
+    @"i16x8.ge_u"           = 0xFD_36,
+    //
+    @"i32x4.eq"             = 0xFD_37,
+    @"i32x4.ne"             = 0xFD_38,
+    @"i32x4.lt_s"           = 0xFD_39,
+    @"i32x4.lt_u"           = 0xFD_3A,
+    @"i32x4.gt_s"           = 0xFD_3B,
+    @"i32x4.gt_u"           = 0xFD_3C,
+    @"i32x4.le_s"           = 0xFD_3D,
+    @"i32x4.le_u"           = 0xFD_3E,
+    @"i32x4.ge_s"           = 0xFD_3F,
+    @"i32x4.ge_u"           = 0xFD_40,
+    //
+    @"f32x4.eq"             = 0xFD_41,
+    @"f32x4.ne"             = 0xFD_42,
+    @"f32x4.lt"             = 0xFD_43,
+    @"f32x4.gt"             = 0xFD_44,
+    @"f32x4.le"             = 0xFD_45,
+    @"f32x4.ge"             = 0xFD_46,
+    //
+    @"f64x2.eq"             = 0xFD_47,
+    @"f64x2.ne"             = 0xFD_48,
+    @"f64x2.lt"             = 0xFD_49,
+    @"f64x2.gt"             = 0xFD_4A,
+    @"f64x2.le"             = 0xFD_4B,
+    @"f64x2.ge"             = 0xFD_4C,
+
 
     // zig fmt: on
 };
