@@ -1,0 +1,7 @@
+# pack-refs with: peeled fully-peeled sorted 
+6b9ddeaaf6e007bc64ae298f900e2f03935eaea2 refs/remotes/origin/child-handles
+91d669ed47a04675f54197f5f752eb03810a64af refs/remotes/origin/fixed-length-lists
+5a5c1d1ce1333d293d8b6e9d914f6c3bba7f7ae2 refs/remotes/origin/lmm/ref-interp
+2601394e423915d75be23de7cfbd1f8da3a398c3 refs/remotes/origin/lmm/valid-spec-text
+f0487b282dd681023015b72af4f06c39a5716196 refs/remotes/origin/main
+f61d68b3a0c73bcdf1a45feff6f24ad1446e3646 refs/remotes/origin/use-import-or-export

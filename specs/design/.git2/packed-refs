@@ -1,0 +1,26 @@
+# pack-refs with: peeled fully-peeled sorted 
+e4a9109272b5d253ed416569f993220829cb7746 refs/remotes/origin/binji-threads
+4bee5d1127f114965c1852ccfaaaa7d1ba2791a5 refs/remotes/origin/dschuff-patch-1
+c198916e830bc898f3302283935a61d5e3e7427a refs/remotes/origin/fix_custom_
+d0ade97725186c53607e5b03d6941e7b4da936ba refs/remotes/origin/import-table-elements
+69487692544652137c19ae24b868c99ad8e29bcd refs/remotes/origin/jfbastien-patch-1
+95a3bee6a27790e3c849bc09da928f785047bc80 refs/remotes/origin/jfbastien-patch-3
+c55d7e80d2b18b8592e827f72a6bc0e4f3150142 refs/remotes/origin/main
+268de2e6e9842f3d956c0bae36bd51c8bac3e900 refs/remotes/origin/module-name
+7ceb5b1465df6ab561cd71ee0b648c6b1d1334a5 refs/remotes/origin/s3ththompson-patch-1
+1a4a1c3a79a2a8348c68083a5887948a66c28f2f refs/remotes/origin/s3ththompson-patch-2
+773fdb7bbea53e05e3987eefe4e1df2e9dec0a05 refs/remotes/origin/saambarati-patch-1
+0feefea26bf9173583ff278813fb751d6ce0ad53 refs/remotes/origin/semantics-link-typos
+d02d42fd40e3943bf0137927127ac8831952f15b refs/remotes/origin/sourcemaps
+304055060efc90bb03799c8ab15c3802cbe5866b refs/remotes/origin/split-compile-and-instantiate
+d29ef90bba724e65e1371d8dff779420d316f03b refs/remotes/origin/text-clarification
+feb0c7fb4b7ca629f2f05da6416560dd39c3151e refs/remotes/origin/update-contributing
+b13372a1a45fcad32048d2a5995a33a0932eeed0 refs/remotes/origin/validate
+66a878a3d21ac2e68662d969e72b3b085e17563d refs/remotes/origin/wordsmith1
+d950c1ff61ab412909a3937a494be118ce386d9b refs/tags/pre-release-0xA
+^5c49b34d3562ec32228177fb71f17a85e583a60b
+85dd9f0e6335750fa0f526034eca3cc5a2f0f33e refs/tags/pre-release-0xB
+^7c8be53bad55836ac5f0c6d1de70006552162901
+6f7fd4c2239dab1c1670b14709c07ea68169eb17 refs/tags/pre-release-0xC
+^453320eb21f5e7476fb27db7874c45aa855927b7
+9974cded38e762aa6e00098a7d1e6b6f0c270ba0 refs/tags/public-announcement
